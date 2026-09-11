@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fluxo — Painel de organização</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FAFAF8;
+    --surface:#FFFFFF;
+    --border:#E6E3DC;
+    --border-strong:#D8D4CA;
+    --ink:#17161B;
+    --muted:#726F68;
+    --muted-2:#9B978E;
+    --pink:#FF2E7E;
+    --pink-deep:#E0125C;
+    --pink-soft:#FFE7F0;
+    --radius:12px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;line-height:1.55;}
+  .serif{font-family:'Fraunces',serif;}
+  header{max-width:1040px;margin:0 auto;padding:48px 24px 28px;}
+  .eyebrow{font-size:12.5px;letter-spacing:0.09em;color:var(--muted);margin:0 0 12px;font-weight:500;}
+  h1{font-size:clamp(32px,5vw,44px);font-weight:600;margin:0 0 8px;letter-spacing:-0.02em;}
+  .notice{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:13px;color:var(--pink-deep);
+    background:var(--pink-soft);
+    border-radius:999px;padding:7px 14px;margin-top:6px;
+  }
+  main{max-width:1040px;margin:0 auto;padding:0 24px 80px;}
+  .toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap;}
+  .meta{font-size:14px;color:var(--muted);}
+  .refresh-btn{
+    background:var(--surface);border:1.5px solid var(--border-strong);border-radius:999px;
+    padding:10px 20px;font-family:inherit;font-weight:500;font-size:13.5px;cursor:pointer;
+    transition:all .18s ease;
+  }
+  .refresh-btn:hover{border-color:var(--pink);color:var(--pink-deep);background:var(--pink-soft);}
+  .table-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    overflow:hidden;
+  }
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  thead th{
+    text-align:left;padding:14px 16px;background:var(--bg);
+    border-bottom:1px solid var(--border);color:var(--muted);
+    font-weight:500;font-size:12.5px;letter-spacing:0.03em;text-transform:uppercase;
+  }
+  tbody td{padding:14px 16px;border-bottom:1px solid var(--border);vertical-align:top;}
+  tbody tr{transition:background .15s ease;}
+  tbody tr:hover{background:var(--pink-soft);}
+  tbody tr:last-child td{border-bottom:none;}
+  .empty-state{padding:48px 24px;text-align:center;color:var(--muted);}
+  .empty-state .big{font-size:32px;margin-bottom:10px;}
+</style>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow">PAINEL INTERNO</p>
+  <h1 class="serif">Fluxo — Inscrições recebidas</h1>
+  <span class="notice">Uso restrito à organização — não compartilhe este link</span>
+</header>
+
+<main>
+  <div class="toolbar">
+    <p class="meta" id="meta">Carregando inscrições…</p>
+    <button class="refresh-btn" id="refreshBtn">Atualizar lista</button>
+  </div>
+  <div class="table-card" id="tableCard"></div>
+</main>
+
+<script>
+const meta = document.getElementById('meta');
+const tableCard = document.getElementById('tableCard');
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str == null ? '' : str;
+  return d.innerHTML;
+}
+
+async function loadSubmissions(){
+  meta.textContent = 'Carregando inscrições…';
+  tableCard.innerHTML = '';
+  try{
+    const list = await window.storage.list('submission:', true);
+    const keys = (list && list.keys) ? list.keys : [];
+    if (keys.length === 0){
+      meta.textContent = 'Nenhuma inscrição recebida ainda.';
+      tableCard.innerHTML = `<div class="empty-state"><div class="big">—</div>Assim que alguém enviar o formulário, aparece aqui.</div>`;
+      return;
+    }
+    const items = [];
+    for (const k of keys){
+      try{
+        const r = await window.storage.get(k, true);
+        if (r && r.value) items.push(JSON.parse(r.value));
+      }catch(e){ /* ignora entrada corrompida */ }
+    }
+    items.sort((a,b) => new Date(b.enviadoEm) - new Date(a.enviadoEm));
+    meta.textContent = `${items.length} inscrição(ões) recebida(s).`;
+
+    let html = `<table><thead><tr>
+      <th>Projeto</th><th>Semestre</th><th>Integrantes</th>
+      <th>Equipamentos</th><th>Contato</th><th>Observações</th><th>Enviado em</th>
+    </tr></thead><tbody>`;
+    items.forEach(s => {
+      const equip = [...(s.equipamentos||[]), s.equipOutro].filter(Boolean).join(', ') || '—';
+      const data = s.enviadoEm ? new Date(s.enviadoEm).toLocaleString('pt-BR') : '—';
+      html += `<tr>
+        <td><strong>${escapeHtml(s.nome)}</strong></td>
+        <td>${escapeHtml(s.semestre)}</td>
+        <td>${escapeHtml((s.integrantes||[]).join(', '))}</td>
+        <td>${escapeHtml(equip)}</td>
+        <td>${escapeHtml(s.contatoNome)} — ${escapeHtml(s.contatoInfo)}</td>
+        <td>${escapeHtml(s.obs || '—')}</td>
+        <td>${escapeHtml(data)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    tableCard.innerHTML = html;
+  }catch(err){
+    console.error('Load error', err);
+    meta.textContent = 'Não foi possível carregar as inscrições agora.';
+  }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadSubmissions);
+loadSubmissions();
+</script>
+
+</body>
+</html>
