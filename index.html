@@ -76,6 +76,10 @@
 </main>
 
 <script>
+// Cole aqui a MESMA URL usada no formulário, e a mesma chave definida no Apps Script
+const APPS_SCRIPT_URL = "COLE_AQUI_A_URL_DO_SEU_APPS_SCRIPT";
+const CHAVE_SECRETA = "troque-por-uma-chave-so-sua-2026";
+
 const meta = document.getElementById('meta');
 const tableCard = document.getElementById('tableCard');
 
@@ -89,19 +93,16 @@ async function loadSubmissions(){
   meta.textContent = 'Carregando inscrições…';
   tableCard.innerHTML = '';
   try{
-    const list = await window.storage.list('submission:', true);
-    const keys = (list && list.keys) ? list.keys : [];
-    if (keys.length === 0){
+    const res = await fetch(`${APPS_SCRIPT_URL}?key=${encodeURIComponent(CHAVE_SECRETA)}`);
+    const items = await res.json();
+    if (items.error){
+      meta.textContent = 'Acesso não autorizado — confira a chave secreta.';
+      return;
+    }
+    if (!items || items.length === 0){
       meta.textContent = 'Nenhuma inscrição recebida ainda.';
       tableCard.innerHTML = `<div class="empty-state"><div class="big">—</div>Assim que alguém enviar o formulário, aparece aqui.</div>`;
       return;
-    }
-    const items = [];
-    for (const k of keys){
-      try{
-        const r = await window.storage.get(k, true);
-        if (r && r.value) items.push(JSON.parse(r.value));
-      }catch(e){ /* ignora entrada corrompida */ }
     }
     items.sort((a,b) => new Date(b.enviadoEm) - new Date(a.enviadoEm));
     meta.textContent = `${items.length} inscrição(ões) recebida(s).`;
