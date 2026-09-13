@@ -6,7 +6,7 @@
 <title>Fluxo — Painel de organização</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   :root{
     --bg:#FAFAF8;
@@ -480,7 +480,22 @@ async function loadSubmissions(){
     renderKPIs(computeKPIs(items));
     populateSemFilter(items);
     renderTable(items);
-    renderCharts(items);
+
+    try{
+      if (typeof Chart === 'undefined'){
+        throw new Error('Chart.js não carregou (verifique conexão ou bloqueador de scripts).');
+      }
+      renderCharts(items);
+    }catch(chartErr){
+      console.error('Chart error', chartErr);
+      ['chartSemestre','chartAvaliacao','chartEquip','chartTempo'].forEach(id => {
+        const canvas = document.getElementById(id);
+        if (canvas && canvas.parentElement){
+          canvas.parentElement.insertAdjacentHTML('beforeend',
+            `<p style="color:var(--muted);font-size:13px;">Não foi possível carregar o gráfico agora. Recarregue a página.</p>`);
+        }
+      });
+    }
   }catch(err){
     console.error('Load error', err);
     meta.textContent = 'Não foi possível carregar as inscrições agora.';
